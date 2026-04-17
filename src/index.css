@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Hindi:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --saffron: #E8752A;
+  --saffron-light: #FFF0E6;
+  --charcoal: #1C1C1E;
+  --muted: #6B7280;
+  --cream: #FAFAF7;
+  --border: #E5E7EB;
+  --white: #FFFFFF;
+  --success: #16A34A;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--charcoal);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Hindi/Punjabi/Bengali script rendering — better line-height for complex scripts */
+.devanagari,
+[lang="hi"],
+[lang="pa"],
+[lang="bn"] {
+  font-family: 'Tiro Devanagari Hindi', 'DM Sans', sans-serif;
+  line-height: 1.9;
+}
+
+/* Smooth custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Prevent layout shift on mobile when keyboard opens */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+}
+
+/* Smooth typing animation for chat bubbles */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-appear {
+  animation: fadeSlideIn 0.2s ease-out forwards;
+}

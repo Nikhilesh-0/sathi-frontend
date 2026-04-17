@@ -19,9 +19,9 @@ function LoadingScreen() {
 function AppRoutes() {
   const { user, loading } = useApp();
 
-  // Always show spinner while Firebase resolves auth state.
-  // Never render routes until we know definitively whether user is logged in.
-  // This prevents the redirect loop caused by navigating before auth settles.
+  // Don't render ANY routes until Firebase has confirmed auth state.
+  // This is the critical gate — without it, the router renders before
+  // auth is known and creates redirect loops.
   if (loading) return <LoadingScreen />;
 
   return (
@@ -34,7 +34,6 @@ function AppRoutes() {
         path="/chat"
         element={user ? <ChatPage /> : <Navigate to="/" replace />}
       />
-      {/* Catch-all — send unknown routes to root */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

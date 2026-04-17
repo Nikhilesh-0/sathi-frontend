@@ -2,8 +2,7 @@ import { initializeApp } from "firebase/app";
 import {
   getAuth,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut,
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -22,7 +21,5 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// signInWithRedirect is more reliable than popup across all browsers & mobile
-export const signInWithGoogle = () => signInWithRedirect(auth, googleProvider);
-export const handleRedirectResult = () => getRedirectResult(auth);
+export const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
 export const signOutUser = () => signOut(auth);

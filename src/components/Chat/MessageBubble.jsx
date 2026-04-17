@@ -30,7 +30,7 @@ export default function MessageBubble({ message }) {
         </div>
 
         {/* FD product cards */}
-        {message.fdCards && message.fdCards.length > 0 && (
+        {Array.isArray(message.fdCards) && message.fdCards.length > 0 && (
           <div className="flex flex-col gap-3 w-full">
             {message.fdCards.map((fd) => (
               <FDCard key={fd.id} fd={fd} />

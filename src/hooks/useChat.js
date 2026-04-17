@@ -1,11 +1,16 @@
 import { useState, useCallback } from "react";
 import { sendMessage } from "../lib/api";
-import { v4 as uuidv4 } from "uuid";
+
+// Use built-in crypto.randomUUID — no external dependency, works in all modern browsers
+const generateId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 export const useChat = (language) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [sessionId] = useState(() => uuidv4());
+  const [sessionId] = useState(() => generateId());
   const [bookingState, setBookingState] = useState(null);
 
   const sendUserMessage = useCallback(

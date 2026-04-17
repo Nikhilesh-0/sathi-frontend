@@ -3,28 +3,26 @@ import { AppProvider, useApp } from "./context/AppContext";
 import LandingPage from "./pages/LandingPage";
 import ChatPage from "./pages/ChatPage";
 
-function ProtectedRoute({ children }) {
-  const { user, loading } = useApp();
-
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-cream">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-saffron rounded-2xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-3 shadow-md animate-pulse">
-            S
-          </div>
-          <p className="text-muted text-sm">Loading Sathi...</p>
+function LoadingScreen() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-cream">
+      <div className="text-center">
+        <div className="w-12 h-12 bg-saffron rounded-2xl flex items-center justify-center text-white font-bold text-xl mx-auto mb-3 shadow-md animate-pulse">
+          S
         </div>
+        <p className="text-muted text-sm">Loading Sathi...</p>
       </div>
-    );
-  }
-
-  return user ? children : <Navigate to="/" replace />;
+    </div>
+  );
 }
 
 function AppRoutes() {
   const { user, loading } = useApp();
-  if (loading) return null;
+
+  // Always show spinner while Firebase resolves auth state.
+  // Never render routes until we know definitively whether user is logged in.
+  // This prevents the redirect loop caused by navigating before auth settles.
+  if (loading) return <LoadingScreen />;
 
   return (
     <Routes>
@@ -34,12 +32,10 @@ function AppRoutes() {
       />
       <Route
         path="/chat"
-        element={
-          <ProtectedRoute>
-            <ChatPage />
-          </ProtectedRoute>
-        }
+        element={user ? <ChatPage /> : <Navigate to="/" replace />}
       />
+      {/* Catch-all — send unknown routes to root */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

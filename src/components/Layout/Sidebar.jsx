@@ -33,6 +33,8 @@ function SessionItem({ session, onClick }) {
 export default function Sidebar({ onSelectSession }) {
   const { sessions, loadingSessions } = useHistory();
 
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+
   return (
     <aside className="w-64 bg-white border-r border-border flex-col hidden md:flex">
       <div className="px-4 py-3 border-b border-border">
@@ -51,13 +53,13 @@ export default function Sidebar({ onSelectSession }) {
               </div>
             ))}
           </div>
-        ) : sessions.length === 0 ? (
+        ) : safeSessions.length === 0 ? (
           <div className="p-4 text-center">
             <p className="text-xs text-muted">No conversations yet</p>
             <p className="text-xs text-muted mt-1">Start chatting with Sathi!</p>
           </div>
         ) : (
-          sessions.map((session) => (
+          safeSessions.map((session) => (
             <SessionItem
               key={session.session_id}
               session={session}

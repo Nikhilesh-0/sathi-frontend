@@ -196,20 +196,6 @@ The advisory layer, RAG pipeline, language handling, auth, and UX are production
 
 ---
 
-## Demo Script (for hackathon video)
-
-| Scene | Action | What to show |
-|---|---|---|
-| 1 (30s) | Land on app, Google Sign-In, pick Hindi | Auth flow, language picker |
-| 2 (45s) | Type: "FD kya hota hai?" | Hindi response + 📚 RBI badge (RAG in action) |
-| 3 (30s) | Type: "8.5% p.a. ka matlab?" | Relatable rupee example explanation |
-| 4 (45s) | Type: "Mujhe achha FD batao" | Sathi asks goal → user answers → 3 FD cards rendered inline |
-| 5 (30s) | Switch to Punjabi, type booking intent | Language switch, entity collection begins |
-| 6 (30s) | Provide amount, tenor, PAN, nominee | Booking receipt appears with reference number |
-| 7 (20s) | Click a past session in the sidebar | Conversation history loads — full chat visible |
-
----
-
 ## Evaluation Rubric Coverage
 
 | Criterion | How Sathi addresses it |

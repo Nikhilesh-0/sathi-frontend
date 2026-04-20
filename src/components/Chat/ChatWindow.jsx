@@ -35,33 +35,65 @@ const QUICK_PROMPTS = {
   ],
 };
 
-export default function ChatWindow() {
+export default function ChatWindow({ initialMessages, onNewChat }) {
   const { language } = useApp();
   const { messages, loading, sendUserMessage } = useChat(language);
   const bottomRef = useRef(null);
 
+  // If initialMessages is set, we are in history-view mode.
+  // We show the historical messages read-only, and new messages sent
+  // go into the fresh useChat state (initialMessages becomes null via
+  // the key prop on ChatWindow in ChatPage, so this branch is only
+  // active when viewing history before typing anything).
+  const isHistoryView = Array.isArray(initialMessages);
+
+  const displayMessages = isHistoryView ? initialMessages : messages;
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [displayMessages, loading]);
 
   const welcomeMsg = {
     role: "assistant",
     content: WELCOME_MESSAGES[language] || WELCOME_MESSAGES.hindi,
   };
 
-  const allMessages = messages.length === 0 ? [welcomeMsg] : messages;
-  const showQuickPrompts = messages.length === 0;
+  // For a fresh chat: show welcome if no messages yet
+  // For history view: show whatever came from Firestore (no welcome override)
+  const allMessages =
+    isHistoryView
+      ? displayMessages
+      : displayMessages.length === 0
+        ? [welcomeMsg]
+        : displayMessages;
+
+  const showQuickPrompts = !isHistoryView && messages.length === 0;
   const prompts = QUICK_PROMPTS[language] || QUICK_PROMPTS.hindi;
 
   return (
     <div className="flex flex-col h-full">
+      {/* History mode banner */}
+      {isHistoryView && (
+        <div className="flex items-center justify-between bg-amber-50 border-b border-amber-200 px-4 py-2 flex-shrink-0">
+          <p className="text-xs text-amber-700 font-medium">
+            📖 Viewing past conversation
+          </p>
+          <button
+            onClick={onNewChat}
+            className="text-xs text-saffron font-semibold hover:underline"
+          >
+            + New Chat
+          </button>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-cream">
         {allMessages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
         ))}
 
-        {/* Quick prompt chips — only show before first user message */}
+        {/* Quick prompt chips — only show before first user message on fresh chat */}
         {showQuickPrompts && (
           <div className="flex flex-wrap gap-2 mt-2 ml-11">
             {prompts.map((prompt) => (
@@ -87,7 +119,19 @@ export default function ChatWindow() {
         <div ref={bottomRef} />
       </div>
 
-      <InputBar onSend={sendUserMessage} disabled={loading} language={language} />
+      {/* Input bar — disabled during history view with a prompt to start fresh */}
+      {isHistoryView ? (
+        <div className="bg-white border-t border-border px-4 py-3 flex items-center justify-center">
+          <button
+            onClick={onNewChat}
+            className="text-sm text-saffron font-semibold hover:underline"
+          >
+            Start a new conversation →
+          </button>
+        </div>
+      ) : (
+        <InputBar onSend={sendUserMessage} disabled={loading} language={language} />
+      )}
     </div>
   );
 }

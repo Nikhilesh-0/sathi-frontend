@@ -8,13 +8,13 @@ Built for the **Blostem AI Builder Hackathon** (backed by Rainmatter/Zerodha).
 
 ## What is Sathi?
 
-Sathi is a **multilingual, AI-powered Fixed Deposit advisory product** for semi-urban and rural Indian users with zero financial literacy. It is not a chatbot — it is a structured advisory flow with:
+Sathi is a **multilingual, AI-powered Fixed Deposit advisory product** for semi-urban and rural Indian users with zero financial literacy. It is not a generic chatbot — it is a structured advisory experience with:
 
-- **RAG pipeline** grounded in real RBI documents and FD guidelines (FAISS + sentence-transformers)
-- **12 real FD products** with accurate 2024 rates, rendered as inline product cards
-- **Tool-calling booking flow** — extracts 4 entities (amount, tenor, PAN, nominee) and generates a mock FD receipt
+- **RAG pipeline** grounded in real RBI documents and FD guidelines (FAISS + fastembed)
+- **12 real FD products** with accurate rates, rendered as inline product cards
+- **Conversational booking flow** — collects 4 entities (amount, tenor, PAN, nominee) and generates a mock FD receipt
 - **3 languages**: Hindi (Devanagari), Punjabi (Gurmukhi), Bengali (Bengali script)
-- **Firebase Auth** (Google Sign-In) + **Firestore** conversation history
+- **Firebase Auth** (Google Sign-In) + **Firestore** conversation history with sidebar
 - **Mobile-first UI** with a warm, saffron-amber design system
 
 ---
@@ -22,24 +22,28 @@ Sathi is a **multilingual, AI-powered Fixed Deposit advisory product** for semi-
 ## Architecture
 
 ```
-sathi-frontend/          ← React + Vite + Tailwind (deploy to Vercel)
-sathi-backend/           ← FastAPI + Gemini 1.5 Flash + FAISS (deploy to Railway)
+sathi-frontend/          ← React + Vite + Tailwind (deployed to Vercel)
+sathi-backend/           ← FastAPI + Gemini 2.5 Flash + FAISS (deployed to Railway)
 ```
 
-### Backend services:
+### Backend services
+
 | Service | Purpose |
 |---|---|
-| `gemini_service.py` | Builds system prompt, calls Gemini 1.5 Flash, parses structured outputs |
-| `faiss_service.py` | Builds FAISS index from 3 knowledge files, retrieves top-2 chunks per query |
+| `gemini_service.py` | Builds system prompt, calls Gemini 2.5 Flash, parses structured outputs |
+| `faiss_service.py` | Builds FAISS index from 3 knowledge files at startup, retrieves top-2 chunks per query |
 | `booking_service.py` | Generates mock FD receipt with compound interest calculation |
 | `auth_service.py` | Verifies Firebase ID tokens, exposes Firestore client |
 
-### FAISS RAG Pipeline:
+### FAISS RAG Pipeline
+
 1. At startup: reads `fd_jargon.txt`, `rbi_guidelines.txt`, `fd_comparison_guide.txt`
-2. Splits into ~200-word chunks, encodes with `paraphrase-multilingual-MiniLM-L12-v2`
+2. Splits into ~200-word chunks, encodes with `fastembed` (`BAAI/bge-small-en-v1.5`, ~25MB ONNX model)
 3. Stores 47+ vectors in an in-memory `IndexFlatL2` FAISS index
 4. At query time: encodes user query → finds top-2 chunks → injects into Gemini system prompt
-5. The multilingual model maps Hindi/Punjabi/Bengali queries to the same embedding space as English knowledge
+5. English knowledge base retrieves correctly regardless of input language — Gemini handles the multilingual output
+
+**Why fastembed instead of sentence-transformers:** sentence-transformers pulls PyTorch (~700MB) which exceeds Railway's build timeout. fastembed uses ONNX Runtime (~50MB total) — same quality, 14x smaller.
 
 ---
 
@@ -49,11 +53,11 @@ sathi-backend/           ← FastAPI + Gemini 1.5 Flash + FAISS (deploy to Railw
 - Python 3.11+
 - Node.js 18+
 - A Firebase project (free tier works)
-- Gemini API key (free at aistudio.google.com)
+- Gemini API key (free at [aistudio.google.com](https://aistudio.google.com))
 
 ---
 
-### Phase 1: Firebase Setup (15 minutes)
+### Phase 1: Firebase Setup (~15 minutes)
 
 1. Go to [console.firebase.google.com](https://console.firebase.google.com) → Create project → name it `sathi-fd-advisor`
 2. **Authentication** → Sign-in methods → Google → Enable
@@ -95,7 +99,7 @@ cp .env.example .env
 uvicorn app.main:app --reload --port 8000
 ```
 
-**First startup takes 2-3 minutes** — the sentence-transformers model (~120MB) downloads and FAISS index builds. You'll see:
+**First startup takes 1-2 minutes** — the fastembed model (~25MB) downloads and FAISS index builds. You'll see:
 ```
 [FAISS] Total chunks to index: 47
 [FAISS] Index built. 47 vectors stored.
@@ -127,7 +131,7 @@ cp .env.example .env
 #   VITE_API_BASE_URL=http://localhost:8000
 
 npm run dev
-# → http://localhost:3000
+# → http://localhost:5173
 ```
 
 ---
@@ -141,10 +145,10 @@ npm run dev
 3. Add environment variables in Railway dashboard:
    - `GEMINI_API_KEY` = your key
    - `FIREBASE_CREDENTIALS_JSON` = paste the entire `firebase-credentials.json` content as a single-line JSON string
-4. Railway auto-detects the `Procfile`. Build takes ~5 min (model download).
+4. Railway auto-detects the `Procfile`. Build takes ~3-5 min (model download on first deploy).
 5. Copy your Railway URL (e.g. `https://sathi-backend.up.railway.app`)
 
-> **Tip for Railway**: Use `FIREBASE_CREDENTIALS_JSON` env var (the full JSON as a string) instead of a file — it's cleaner for cloud deployment. The `auth_service.py` supports both methods.
+> **Tip for Railway**: Use `FIREBASE_CREDENTIALS_JSON` env var (the full JSON as a string) instead of a file — it's cleaner for cloud deployment. The `auth_service.py` supports both methods automatically.
 
 ### Frontend → Vercel
 
@@ -159,7 +163,7 @@ npm run dev
 
 ## Booking Flow
 
-The booking flow extracts 4 entities across the conversation:
+The booking flow collects 4 entities conversationally:
 
 | Entity | Example |
 |---|---|
@@ -169,13 +173,15 @@ The booking flow extracts 4 entities across the conversation:
 | `nominee_name` | Priya Sharma |
 
 Once all 4 are collected, `create_fd_booking()` is called and returns a styled receipt with:
-- Reference number (e.g. `SATHI2024ABC12XYZ`)
+- Reference number (e.g. `SATHI2026ABC12XYZ`)
 - Maturity amount (quarterly compound interest)
 - TDS calculation (if annual interest > ₹40,000)
 - DICGC insurance status
 - Masked PAN, nominee name, booking & maturity dates
 
 To trigger booking mode, user can say: *"FD book karna chahta hoon"* / *"FD book karna chahunda haan"* / *"FD বুক করতে চাই"*
+
+> **Note:** This is a prototype for Phase 1 of the hackathon. The booking generates a realistic mock receipt. Production upgrade requires replacing `create_fd_booking()` with a real API call to Blostem's platform.
 
 ---
 
@@ -200,7 +206,7 @@ The advisory layer, RAG pipeline, language handling, auth, and UX are production
 | 4 (45s) | Type: "Mujhe achha FD batao" | Sathi asks goal → user answers → 3 FD cards rendered inline |
 | 5 (30s) | Switch to Punjabi, type booking intent | Language switch, entity collection begins |
 | 6 (30s) | Provide amount, tenor, PAN, nominee | Booking receipt appears with reference number |
-| End | Show conversation history in sidebar | Per-user persistence |
+| 7 (20s) | Click a past session in the sidebar | Conversation history loads — full chat visible |
 
 ---
 
@@ -209,9 +215,9 @@ The advisory layer, RAG pipeline, language handling, auth, and UX are production
 | Criterion | How Sathi addresses it |
 |---|---|
 | **Relevance (25%)** | Directly targets Blostem's FD advisory use case for tier-2/3 India |
-| **Technical execution (25%)** | FastAPI + FAISS RAG + Gemini tool calling + Firebase Auth + Firestore + Vercel/Railway |
-| **Innovation (20%)** | Multilingual embedding (Hindi/Punjabi/Bengali → same vector space), structured booking flow, inline FD cards |
-| **Demo & narrative (20%)** | Clear 6-scene demo, warm Sathi persona, cultural design (saffron palette, Devanagari font) |
+| **Technical execution (25%)** | FastAPI + FAISS RAG + Gemini 2.5 Flash + Firebase Auth + Firestore + Vercel/Railway |
+| **Innovation (20%)** | Multilingual embeddings (Hindi/Punjabi/Bengali → same vector space), structured booking flow, inline FD cards, per-user conversation history |
+| **Demo & narrative (20%)** | Clear 7-scene demo, warm Sathi persona, cultural design (saffron palette, Devanagari font) |
 | **Scale potential (10%)** | Plugs directly into Blostem API; language model + RAG scales to any language/product vertical |
 
 ---
@@ -226,12 +232,12 @@ sathi-backend/
 │   │   ├── chat.py                # POST /api/v1/chat
 │   │   └── history.py             # GET /api/v1/history/sessions
 │   ├── services/
-│   │   ├── gemini_service.py      # Gemini 1.5 Flash + prompt engineering
-│   │   ├── faiss_service.py       # FAISS RAG pipeline
-│   │   ├── booking_service.py     # FD receipt generation
+│   │   ├── gemini_service.py      # Gemini 2.5 Flash + prompt engineering
+│   │   ├── faiss_service.py       # FAISS RAG pipeline (fastembed/ONNX)
+│   │   ├── booking_service.py     # FD receipt generation (mock)
 │   │   └── auth_service.py        # Firebase token verification
 │   ├── data/
-│   │   ├── fd_products.json       # 12 FD products
+│   │   ├── fd_products.json       # 12 FD products with rates
 │   │   ├── fd_jargon.txt          # 25 FD terms (RAG knowledge)
 │   │   ├── rbi_guidelines.txt     # RBI rules (RAG knowledge)
 │   │   └── fd_comparison_guide.txt # How to choose FDs (RAG knowledge)
@@ -245,14 +251,14 @@ sathi-frontend/
 ├── src/
 │   ├── components/
 │   │   ├── Chat/
-│   │   │   ├── ChatWindow.jsx     # Main chat area + quick prompts
+│   │   │   ├── ChatWindow.jsx     # Main chat area + history view mode
 │   │   │   ├── MessageBubble.jsx  # Text + FD cards + receipt
 │   │   │   ├── InputBar.jsx       # Auto-resize textarea + send
 │   │   │   ├── FDCard.jsx         # Inline FD product card
 │   │   │   └── BookingReceipt.jsx # Dashed-border receipt card
 │   │   ├── Layout/
 │   │   │   ├── Header.jsx         # Logo + language picker + user
-│   │   │   └── Sidebar.jsx        # Conversation history
+│   │   │   └── Sidebar.jsx        # Conversation history (clickable)
 │   │   ├── Auth/
 │   │   │   └── GoogleSignIn.jsx   # Landing / auth page
 │   │   └── UI/
@@ -260,11 +266,11 @@ sathi-frontend/
 │   │       └── TypingIndicator.jsx # Bouncing dots
 │   ├── pages/
 │   │   ├── LandingPage.jsx
-│   │   └── ChatPage.jsx
+│   │   └── ChatPage.jsx           # Wires sidebar → history loader
 │   ├── hooks/
 │   │   ├── useAuth.js
 │   │   ├── useChat.js             # Message state + booking state
-│   │   └── useHistory.js
+│   │   └── useHistory.js          # Fetches sessions from Firestore
 │   ├── lib/
 │   │   ├── firebase.js            # Firebase init + Google auth
 │   │   └── api.js                 # Axios client with auth headers

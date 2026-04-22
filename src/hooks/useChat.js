@@ -7,7 +7,9 @@ const generateId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-export const useChat = (language) => {
+// onMessageSent is an optional callback fired after a successful reply.
+// ChatPage passes fetchSessions() here so the sidebar updates live.
+export const useChat = (language, onMessageSent) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sessionId] = useState(() => generateId());
@@ -38,6 +40,9 @@ export const useChat = (language) => {
 
         setMessages((prev) => [...prev, assistantMsg]);
         if (data.booking_state) setBookingState(data.booking_state);
+
+        // Refresh sidebar session list after a successful reply
+        if (onMessageSent) onMessageSent();
       } catch (err) {
         setMessages((prev) => [
           ...prev,
@@ -51,13 +56,13 @@ export const useChat = (language) => {
         setLoading(false);
       }
     },
-    [messages, language, sessionId, bookingState]
+    [messages, language, sessionId, bookingState, onMessageSent]
   );
 
-  const resetChat = () => {
+  const resetChat = useCallback(() => {
     setMessages([]);
     setBookingState(null);
-  };
+  }, []);
 
   return { messages, loading, sendUserMessage, resetChat, bookingState, sessionId };
 };

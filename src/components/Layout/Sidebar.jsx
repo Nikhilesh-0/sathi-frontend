@@ -1,6 +1,6 @@
 import { useHistory } from "../../hooks/useHistory";
 
-function SessionItem({ session, onClick }) {
+function SessionItem({ session, onClick, isActive }) {
   const date = new Date(session.updated_at);
   const dateStr = date.toLocaleDateString("en-IN", {
     day: "numeric",
@@ -16,9 +16,13 @@ function SessionItem({ session, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left px-4 py-3 hover:bg-cream transition-colors border-b border-border group"
+      className={`w-full text-left px-4 py-3 transition-colors border-b border-border group ${isActive ? "bg-saffron-light" : "hover:bg-cream"
+        }`}
     >
-      <p className="text-sm text-charcoal truncate group-hover:text-saffron transition-colors">
+      <p
+        className={`text-sm truncate transition-colors ${isActive ? "text-saffron font-medium" : "text-charcoal group-hover:text-saffron"
+          }`}
+      >
         {session.title}
       </p>
       <div className="flex items-center gap-2 mt-0.5">
@@ -30,17 +34,26 @@ function SessionItem({ session, onClick }) {
   );
 }
 
-export default function Sidebar({ onSelectSession }) {
+export default function Sidebar({ onSelectSession, onNewChat, activeSessionId }) {
   const { sessions, loadingSessions } = useHistory();
 
   const safeSessions = Array.isArray(sessions) ? sessions : [];
 
   return (
     <aside className="w-64 bg-white border-r border-border flex-col hidden md:flex">
-      <div className="px-4 py-3 border-b border-border">
+      {/* Header with New Chat button */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <p className="text-xs font-semibold text-muted uppercase tracking-wider">
           Recent Chats
         </p>
+        <button
+          onClick={onNewChat}
+          className="text-xs font-semibold text-saffron hover:text-amber-600 transition-colors flex items-center gap-1"
+          title="Start a new chat"
+        >
+          <span className="text-base leading-none">+</span>
+          <span>New</span>
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -63,6 +76,7 @@ export default function Sidebar({ onSelectSession }) {
             <SessionItem
               key={session.session_id}
               session={session}
+              isActive={session.session_id === activeSessionId}
               onClick={() => onSelectSession(session.session_id)}
             />
           ))

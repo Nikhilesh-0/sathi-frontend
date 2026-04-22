@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import MessageBubble from "./MessageBubble";
 import InputBar from "./InputBar";
 import TypingIndicator from "../UI/TypingIndicator";
@@ -35,16 +35,16 @@ const QUICK_PROMPTS = {
   ],
 };
 
-export default function ChatWindow({ initialMessages, onNewChat }) {
+// Props:
+//   initialMessages  — array of {role, content} from Firestore (history view), or null for fresh chat
+//   onNewChat        — called when user wants to start a fresh conversation
+//   onMessageSent    — called after each successful reply (used to refresh sidebar)
+export default function ChatWindow({ initialMessages, onNewChat, onMessageSent }) {
   const { language } = useApp();
-  const { messages, loading, sendUserMessage } = useChat(language);
+  const { messages, loading, sendUserMessage } = useChat(language, onMessageSent);
   const bottomRef = useRef(null);
 
-  // If initialMessages is set, we are in history-view mode.
-  // We show the historical messages read-only, and new messages sent
-  // go into the fresh useChat state (initialMessages becomes null via
-  // the key prop on ChatWindow in ChatPage, so this branch is only
-  // active when viewing history before typing anything).
+  // isHistoryView: we are showing a past session read-only
   const isHistoryView = Array.isArray(initialMessages);
 
   const displayMessages = isHistoryView ? initialMessages : messages;
@@ -53,19 +53,33 @@ export default function ChatWindow({ initialMessages, onNewChat }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [displayMessages, loading]);
 
+  // "Sathi, samjhao" button on an FD card fires a natural language explain request
+  const handleExplainFD = useCallback(
+    (fd) => {
+      const explainText = `${fd.bank_name} ke ${fd.interest_rate}% wale FD ke baare mein detail mein samjhao — kya yeh mujhe sahi rahega?`;
+      sendUserMessage(explainText);
+      // If in history view, clicking explain should drop back to live chat
+      // onNewChat resets historicalMessages in ChatPage, which remounts this
+      // component as a fresh chat. But we don't call it here — the message
+      // is sent via the live useChat, which is always available regardless
+      // of isHistoryView. The key={} on ChatWindow in ChatPage ensures a
+      // remount happens on mode switch, so we just send and let it work.
+    },
+    [sendUserMessage]
+  );
+
   const welcomeMsg = {
     role: "assistant",
     content: WELCOME_MESSAGES[language] || WELCOME_MESSAGES.hindi,
   };
 
-  // For a fresh chat: show welcome if no messages yet
-  // For history view: show whatever came from Firestore (no welcome override)
-  const allMessages =
-    isHistoryView
-      ? displayMessages
-      : displayMessages.length === 0
-        ? [welcomeMsg]
-        : displayMessages;
+  // History view: show Firestore messages as-is
+  // Fresh chat: show welcome until user sends first message
+  const allMessages = isHistoryView
+    ? displayMessages
+    : displayMessages.length === 0
+      ? [welcomeMsg]
+      : displayMessages;
 
   const showQuickPrompts = !isHistoryView && messages.length === 0;
   const prompts = QUICK_PROMPTS[language] || QUICK_PROMPTS.hindi;
@@ -90,10 +104,14 @@ export default function ChatWindow({ initialMessages, onNewChat }) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-cream">
         {allMessages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} />
+          <MessageBubble
+            key={i}
+            message={msg}
+            onExplainFD={!isHistoryView ? handleExplainFD : undefined}
+          />
         ))}
 
-        {/* Quick prompt chips — only show before first user message on fresh chat */}
+        {/* Quick prompt chips — only on fresh chat before first message */}
         {showQuickPrompts && (
           <div className="flex flex-wrap gap-2 mt-2 ml-11">
             {prompts.map((prompt) => (
@@ -119,7 +137,7 @@ export default function ChatWindow({ initialMessages, onNewChat }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar — disabled during history view with a prompt to start fresh */}
+      {/* Input: disabled in history view, replaced by a "start fresh" prompt */}
       {isHistoryView ? (
         <div className="bg-white border-t border-border px-4 py-3 flex items-center justify-center">
           <button

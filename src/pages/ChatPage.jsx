@@ -3,17 +3,22 @@ import Header from "../components/Layout/Header";
 import Sidebar from "../components/Layout/Sidebar";
 import ChatWindow from "../components/Chat/ChatWindow";
 import { getSessionMessages } from "../lib/api";
+import { useHistory } from "../hooks/useHistory";
 
 export default function ChatPage() {
   const [historicalMessages, setHistoricalMessages] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // fetchSessions is used to refresh the sidebar after each message
+  const { fetchSessions } = useHistory();
 
   const handleSelectSession = useCallback(async (sessionId) => {
     setLoadingHistory(true);
     try {
       const messages = await getSessionMessages(sessionId);
-      // messages from API: [{role, content}] — same shape MessageBubble expects
       setHistoricalMessages(messages);
+      setActiveSessionId(sessionId);
     } catch (err) {
       console.error("Failed to load session:", err);
     } finally {
@@ -23,13 +28,18 @@ export default function ChatPage() {
 
   const handleNewChat = useCallback(() => {
     setHistoricalMessages(null);
+    setActiveSessionId(null);
   }, []);
 
   return (
     <div className="h-screen flex flex-col bg-cream">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onSelectSession={handleSelectSession} />
+        <Sidebar
+          onSelectSession={handleSelectSession}
+          onNewChat={handleNewChat}
+          activeSessionId={activeSessionId}
+        />
         <main className="flex-1 overflow-hidden relative">
           {loadingHistory && (
             <div className="absolute inset-0 bg-cream/80 flex items-center justify-center z-10">
@@ -41,10 +51,16 @@ export default function ChatPage() {
               </div>
             </div>
           )}
+          {/*
+            key= forces a full remount of ChatWindow when switching between
+            history view and fresh chat. This resets useChat state cleanly
+            so old messages never leak into new sessions.
+          */}
           <ChatWindow
-            key={historicalMessages ? "history" : "new"}
+            key={historicalMessages ? `history-${activeSessionId}` : "new"}
             initialMessages={historicalMessages}
             onNewChat={handleNewChat}
+            onMessageSent={fetchSessions}
           />
         </main>
       </div>
